@@ -1,0 +1,4 @@
+Flask
+pypdf
+python-dotenv
+google-genai
