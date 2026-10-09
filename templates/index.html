@@ -2,448 +2,936 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
-    <title>CampusMate AI</title>
+    <title>CampusMate AI | Your Academic Assistant</title>
 
     <style>
-
         * {
             box-sizing: border-box;
         }
 
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #3730a3;
+            --primary-light: #eef2ff;
+            --background: #f5f7fb;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --white: #ffffff;
+            --success: #15803d;
+            --danger: #dc2626;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background: #f5f7fb;
             margin: 0;
-            padding: 40px 20px;
-            color: #222;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: auto;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 35px;
-        }
-
-        .header h1 {
-            color: #4f46e5;
-            font-size: 40px;
-            margin-bottom: 10px;
-        }
-
-        .subtitle {
-            color: #666;
-            font-size: 18px;
-        }
-
-        .card {
-            background: white;
-            padding: 30px;
-            border-radius: 18px;
-            margin-bottom: 25px;
-
-            box-shadow:
-                0 5px 20px
-                rgba(0, 0, 0, 0.08);
-        }
-
-        .card h2 {
-            margin-top: 0;
-            color: #333;
-        }
-
-        .card p {
-            color: #666;
+            font-family: Arial, Helvetica, sans-serif;
+            background: var(--background);
+            color: var(--text);
             line-height: 1.6;
         }
 
-        .upload-area {
-            border: 2px dashed #c7c9ff;
-            padding: 25px;
-            border-radius: 12px;
+        /* NAVIGATION */
+
+        .navbar {
+            background: var(--white);
+            padding: 18px 7%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .brand {
+            color: var(--primary);
+            font-size: 23px;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .nav-label {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        /* HERO SECTION */
+
+        .hero {
             text-align: center;
-            margin-top: 20px;
+            padding: 65px 20px 45px;
+            background: linear-gradient(
+                135deg,
+                #eef2ff,
+                #ffffff,
+                #f5f3ff
+            );
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: #e0e7ff;
+            color: var(--primary-dark);
+            padding: 7px 15px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .hero h1 {
+            font-size: clamp(30px, 5vw, 48px);
+            line-height: 1.2;
+            margin: 8px 0 15px;
+            color: #111827;
+        }
+
+        .hero h1 span {
+            color: var(--primary);
+        }
+
+        .hero p {
+            max-width: 680px;
+            margin: 0 auto;
+            color: var(--muted);
+            font-size: 17px;
+        }
+
+        /* MAIN CONTENT */
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 45px 22px 65px;
+        }
+
+        .section-heading {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .section-heading h2 {
+            font-size: 29px;
+            margin-bottom: 8px;
+        }
+
+        .section-heading p {
+            color: var(--muted);
+            margin-top: 0;
+        }
+
+        /* FEATURE CARDS */
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 24px;
+            align-items: stretch;
+        }
+
+        .card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(31, 41, 55, 0.05);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease,
+                        box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 30px rgba(31, 41, 55, 0.09);
+        }
+
+        .feature-icon {
+            width: 55px;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            font-size: 27px;
+            background: var(--primary-light);
+            margin-bottom: 15px;
+        }
+
+        .card h3 {
+            font-size: 21px;
+            margin: 0 0 10px;
+        }
+
+        .card-description {
+            color: var(--muted);
+            font-size: 14px;
+            margin: 0 0 18px;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 23px;
+        }
+
+        .feature-list li {
+            margin-bottom: 9px;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .feature-list li::before {
+            content: "✓";
+            color: var(--success);
+            font-weight: bold;
+            margin-right: 9px;
+        }
+
+        /* FORMS */
+
+        .feature-form {
+            margin-top: auto;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 7px;
+        }
+
+        input[type="file"],
+        input[type="text"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 9px;
+            font-family: inherit;
+            font-size: 14px;
+            background: var(--white);
+            color: var(--text);
         }
 
         input[type="file"] {
-            margin: 10px 0;
+            padding: 10px;
+            background: #fafafa;
         }
 
-        input[type="text"] {
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: 2px solid #c7d2fe;
+            border-color: var(--primary);
+        }
+
+        .help-text {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        .button {
             width: 100%;
-            padding: 13px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            margin-top: 10px;
-            font-size: 15px;
-        }
-
-        button {
-            margin-top: 18px;
-            padding: 13px 22px;
+            display: inline-block;
+            padding: 13px 16px;
             border: none;
-            border-radius: 8px;
-            background: #4f46e5;
-            color: white;
+            border-radius: 9px;
+            background: var(--primary);
+            color: var(--white);
             font-size: 15px;
+            font-weight: bold;
+            font-family: inherit;
             cursor: pointer;
+            text-align: center;
+            transition: background 0.2s ease;
         }
 
-        button:hover {
-            background: #3730a3;
+        .button:hover {
+            background: var(--primary-dark);
         }
 
-        button:disabled {
-            background: #999;
+        .button:disabled {
+            background: #9ca3af;
             cursor: not-allowed;
         }
 
-        .status {
+        /* QUIZ SETTINGS */
+
+        .settings-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* STATUS MESSAGES */
+
+        .status-message {
             display: none;
-            margin-top: 15px;
-            color: #555;
-            font-size: 14px;
-        }
-
-        .feature-number {
-            display: inline-block;
-            background: #eef2ff;
-            color: #4f46e5;
-            padding: 6px 10px;
-            border-radius: 8px;
+            margin-top: 12px;
+            padding: 12px;
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            border-radius: 9px;
             font-size: 13px;
-            font-weight: bold;
-            margin-bottom: 10px;
+            overflow-wrap: anywhere;
         }
 
-        .footer {
+        .status-message.visible {
+            display: block;
+        }
+
+        .status-message.error {
+            background: #fef2f2;
+            color: var(--danger);
+        }
+
+        /* HOW IT WORKS */
+
+        .how-it-works {
+            margin-top: 55px;
+            padding: 30px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+        }
+
+        .how-it-works h2 {
             text-align: center;
-            color: #888;
-            font-size: 13px;
-            margin-top: 30px;
+            margin-top: 0;
+            margin-bottom: 25px;
         }
 
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+        }
+
+        .step {
+            text-align: center;
+            padding: 10px;
+        }
+
+        .step-number {
+            width: 42px;
+            height: 42px;
+            margin: 0 auto 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            background: var(--primary-light);
+            color: var(--primary);
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .step h3 {
+            font-size: 17px;
+            margin-bottom: 7px;
+        }
+
+        .step p {
+            font-size: 14px;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        /* FOOTER */
+
+        footer {
+            text-align: center;
+            padding: 25px 15px;
+            background: var(--white);
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        footer strong {
+            color: var(--primary);
+        }
+
+        /* RESPONSIVE DESIGN */
+
+        @media (max-width: 950px) {
+            .features {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .features .card:last-child {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 650px) {
+            .navbar {
+                padding: 15px 20px;
+            }
+
+            .nav-label {
+                display: none;
+            }
+
+            .hero {
+                padding: 45px 18px 35px;
+            }
+
+            .hero p {
+                font-size: 15px;
+            }
+
+            .main-container {
+                padding: 32px 15px 45px;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+            }
+
+            .features .card:last-child {
+                grid-column: auto;
+            }
+
+            .steps {
+                grid-template-columns: 1fr;
+            }
+
+            .how-it-works {
+                padding: 23px 17px;
+            }
+
+            .card {
+                padding: 22px;
+            }
+
+            .section-heading h2 {
+                font-size: 25px;
+            }
+        }
     </style>
-
 </head>
-
 
 <body>
 
-<div class="container">
+    <!-- NAVIGATION -->
 
+    <nav class="navbar">
+        <a href="/" class="brand">🤖 CampusMate AI</a>
 
-    <!-- HEADER -->
-
-    <div class="header">
-
-        <h1>🤖 CampusMate AI</h1>
-
-        <p class="subtitle">
+        <span class="nav-label">
             Your AI-powered academic assistant
-        </p>
-
-    </div>
-
-
-
-    <!-- STUDY MATERIAL ANALYZER -->
-
-    <div class="card">
-
-        <span class="feature-number">
-            FEATURE 01
         </span>
-
-        <h2>
-            📚 Study Material Analyzer
-        </h2>
-
-        <p>
-            Upload your study material and let
-            CampusMate AI generate a summary,
-            important points, exam questions,
-            key terms and quick revision notes.
-        </p>
+    </nav>
 
 
-        <div class="upload-area">
+    <!-- HERO SECTION -->
 
-            <form
-                action="/upload"
-                method="POST"
-                enctype="multipart/form-data"
-                id="analyzerForm"
-            >
+    <header class="hero">
 
-                <input
-                    type="file"
-                    name="file"
-                    accept=".pdf"
-                    id="analyzerFile"
-                    required
-                >
-
-                <br>
-
-                <button
-                    type="submit"
-                    id="analyzerButton"
-                >
-                    🤖 Analyze PDF
-                </button>
-
-                <div
-                    class="status"
-                    id="analyzerStatus"
-                >
-                    ⏳ CampusMate AI is analyzing
-                    your study material...
-                </div>
-
-            </form>
-
+        <div class="hero-badge">
+            🎓 YOUR SMART STUDY COMPANION
         </div>
 
-    </div>
-
-
-
-    <!-- ASK YOUR NOTES -->
-
-    <div class="card">
-
-        <span class="feature-number">
-            FEATURE 02
-        </span>
-
-        <h2>
-            💬 Ask Your Notes
-        </h2>
+        <h1>
+            Study Smarter with<br>
+            <span>CampusMate AI</span>
+        </h1>
 
         <p>
-            Upload your notes and ask questions
-            directly from the content.
-            CampusMate AI will answer using
-            your uploaded study material.
+            Turn your study materials into summaries, get answers
+            from your notes, and practise for exams with AI-generated
+            quizzes — all in one place.
         </p>
 
-
-        <div class="upload-area">
-
-            <form
-                action="/ask"
-                method="POST"
-                enctype="multipart/form-data"
-                id="askForm"
-            >
-
-                <input
-                    type="file"
-                    name="file"
-                    accept=".pdf"
-                    id="askFile"
-                    required
-                >
-
-                <br>
+    </header>
 
 
-                <input
-                    type="text"
-                    name="question"
-                    id="question"
-                    placeholder="e.g. What is an NMOS transistor?"
-                    required
-                >
+    <!-- MAIN FEATURES -->
 
+    <main class="main-container">
 
-                <button
-                    type="submit"
-                    id="askButton"
-                >
-                    💬 Ask CampusMate
-                </button>
+        <div class="section-heading">
+            <h2>Explore Your Study Tools</h2>
 
-
-                <div
-                    class="status"
-                    id="askStatus"
-                >
-                    ⏳ Reading your notes
-                    and finding the answer...
-                </div>
-
-            </form>
-
+            <p>
+                Choose a tool to get started with your learning.
+            </p>
         </div>
 
-    </div>
+
+        <section class="features">
+
+
+            <!-- FEATURE 1: STUDY MATERIAL ANALYZER -->
+
+            <article class="card">
+
+                <div class="feature-icon">📚</div>
+
+                <h3>Study Material Analyzer</h3>
+
+                <p class="card-description">
+                    Upload your notes or textbook PDF and let AI
+                    transform lengthy material into student-friendly
+                    revision content.
+                </p>
+
+                <ul class="feature-list">
+                    <li>Generate easy-to-understand summaries</li>
+                    <li>Identify important points</li>
+                    <li>Generate potential exam questions</li>
+                    <li>Extract key terms for revision</li>
+                </ul>
+
+                <form
+                    action="/upload"
+                    method="POST"
+                    enctype="multipart/form-data"
+                    class="feature-form"
+                    data-loading-message="Analyzing your study material..."
+                >
+
+                    <div class="form-group">
+                        <label for="analyzerFile">
+                            Upload your PDF
+                        </label>
+
+                        <input
+                            type="file"
+                            id="analyzerFile"
+                            name="file"
+                            accept=".pdf,application/pdf"
+                            required
+                        >
+
+                        <small class="help-text">
+                            Select a PDF containing your study notes.
+                        </small>
+                    </div>
+
+                    <button type="submit" class="button">
+                        Analyze My PDF →
+                    </button>
+
+                    <div
+                        class="status-message"
+                        aria-live="polite"
+                    ></div>
+
+                </form>
+
+            </article>
+
+
+
+            <!-- FEATURE 2: ASK YOUR NOTES -->
+
+            <article class="card">
+
+                <div class="feature-icon">💬</div>
+
+                <h3>Ask Your Notes</h3>
+
+                <p class="card-description">
+                    Have a doubt while studying? Upload your notes
+                    and ask a question to get a helpful answer based
+                    on your study material.
+                </p>
+
+                <ul class="feature-list">
+                    <li>Ask questions about your PDF</li>
+                    <li>Understand difficult concepts</li>
+                    <li>Find information in your notes</li>
+                    <li>Get student-friendly explanations</li>
+                </ul>
+
+                <form
+                    action="/ask"
+                    method="POST"
+                    enctype="multipart/form-data"
+                    class="feature-form"
+                    data-loading-message="Reading your notes and preparing an answer..."
+                >
+
+                    <div class="form-group">
+                        <label for="askFile">
+                            Upload your PDF
+                        </label>
+
+                        <input
+                            type="file"
+                            id="askFile"
+                            name="file"
+                            accept=".pdf,application/pdf"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="studentQuestion">
+                            Your question
+                        </label>
+
+                        <textarea
+                            id="studentQuestion"
+                            name="question"
+                            placeholder="Example: Explain the main concepts in this chapter."
+                            required
+                        ></textarea>
+                    </div>
+
+                    <button type="submit" class="button">
+                        Ask My Notes →
+                    </button>
+
+                    <div
+                        class="status-message"
+                        aria-live="polite"
+                    ></div>
+
+                </form>
+
+            </article>
+
+
+
+            <!-- FEATURE 3: AI QUIZ GENERATOR -->
+
+            <article class="card">
+
+                <div class="feature-icon">🧠</div>
+
+                <h3>AI Quiz Generator</h3>
+
+                <p class="card-description">
+                    Test your understanding by creating a personalised
+                    multiple-choice quiz directly from your uploaded
+                    study material.
+                </p>
+
+                <ul class="feature-list">
+                    <li>Generate MCQs from your PDF</li>
+                    <li>Choose your preferred difficulty</li>
+                    <li>Select the number of questions</li>
+                    <li>Submit answers and check your score</li>
+                </ul>
+
+                <form
+                    action="/quiz"
+                    method="POST"
+                    enctype="multipart/form-data"
+                    class="feature-form"
+                    id="quizForm"
+                    data-loading-message="Generating your quiz with AI. This may take a little while..."
+                >
+
+                    <div class="form-group">
+                        <label for="quizFile">
+                            Upload your PDF
+                        </label>
+
+                        <input
+                            type="file"
+                            id="quizFile"
+                            name="file"
+                            accept=".pdf,application/pdf"
+                            required
+                        >
+
+                        <small class="help-text">
+                            Upload notes with selectable text for
+                            the best results.
+                        </small>
+                    </div>
+
+
+                    <div class="settings-row">
+
+                        <div class="form-group">
+                            <label for="numQuestions">
+                                Questions
+                            </label>
+
+                            <select
+                                id="numQuestions"
+                                name="num_questions"
+                                required
+                            >
+                                <option value="5" selected>
+                                    5 Questions
+                                </option>
+
+                                <option value="10">
+                                    10 Questions
+                                </option>
+
+                                <option value="15">
+                                    15 Questions
+                                </option>
+                            </select>
+                        </div>
+
+
+                        <div class="form-group">
+                            <label for="difficulty">
+                                Difficulty
+                            </label>
+
+                            <select
+                                id="difficulty"
+                                name="difficulty"
+                                required
+                            >
+                                <option value="Easy">
+                                    Easy
+                                </option>
+
+                                <option value="Medium" selected>
+                                    Medium
+                                </option>
+
+                                <option value="Hard">
+                                    Hard
+                                </option>
+                            </select>
+                        </div>
+
+                    </div>
+
+
+                    <button type="submit" class="button">
+                        Generate Quiz →
+                    </button>
+
+                    <div
+                        class="status-message"
+                        id="quizStatus"
+                        aria-live="polite"
+                    ></div>
+
+                </form>
+
+            </article>
+
+        </section>
+
+
+
+        <!-- HOW IT WORKS -->
+
+        <section class="how-it-works">
+
+            <h2>How CampusMate AI Works</h2>
+
+            <div class="steps">
+
+                <div class="step">
+
+                    <div class="step-number">1</div>
+
+                    <h3>Upload Your Notes</h3>
+
+                    <p>
+                        Choose a PDF containing your study material.
+                    </p>
+
+                </div>
+
+
+                <div class="step">
+
+                    <div class="step-number">2</div>
+
+                    <h3>Let AI Help You</h3>
+
+                    <p>
+                        Get summaries, answers, or a personalised quiz.
+                    </p>
+
+                </div>
+
+
+                <div class="step">
+
+                    <div class="step-number">3</div>
+
+                    <h3>Learn and Revise</h3>
+
+                    <p>
+                        Understand concepts and prepare more effectively
+                        for your exams.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
 
 
 
     <!-- FOOTER -->
 
-    <div class="footer">
-
-        CampusMate AI • Your smart academic companion 🎓
-
-    </div>
-
-
-</div>
+    <footer>
+        Built with 💜 for students | <strong>CampusMate AI</strong>
+        <br>
+        Your AI-powered academic assistant.
+    </footer>
 
 
 
-<script>
+    <!-- FORM VALIDATION AND LOADING MESSAGES -->
 
-    // ---------------------------------------
-    // STUDY MATERIAL ANALYZER
-    // ---------------------------------------
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
 
-    const analyzerForm =
-        document.getElementById("analyzerForm");
+            const forms = document.querySelectorAll(".feature-form");
 
-    const analyzerFile =
-        document.getElementById("analyzerFile");
+            forms.forEach(function (form) {
 
-    const analyzerButton =
-        document.getElementById("analyzerButton");
+                form.addEventListener("submit", function (event) {
 
-    const analyzerStatus =
-        document.getElementById("analyzerStatus");
+                    const fileInput = form.querySelector(
+                        'input[type="file"]'
+                    );
+
+                    const statusBox = form.querySelector(
+                        ".status-message"
+                    );
+
+                    const submitButton = form.querySelector(
+                        'button[type="submit"]'
+                    );
+
+                    // Check that a file was selected.
+                    if (!fileInput || !fileInput.files.length) {
+
+                        event.preventDefault();
+
+                        showMessage(
+                            statusBox,
+                            "Please select a PDF file first.",
+                            true
+                        );
+
+                        return;
+                    }
+
+                    const file = fileInput.files[0];
+
+                    // Check the file extension.
+                    if (!file.name.toLowerCase().endsWith(".pdf")) {
+
+                        event.preventDefault();
+
+                        showMessage(
+                            statusBox,
+                            "Invalid file type. Please upload a PDF.",
+                            true
+                        );
+
+                        return;
+                    }
+
+                    // Check the file size: maximum 15 MB.
+                    const maximumSize = 15 * 1024 * 1024;
+
+                    if (file.size > maximumSize) {
+
+                        event.preventDefault();
+
+                        showMessage(
+                            statusBox,
+                            "The PDF is too large. Please choose a file smaller than 15 MB.",
+                            true
+                        );
+
+                        return;
+                    }
+
+                    // Check that the Ask Your Notes question is not empty.
+                    const questionInput = form.querySelector(
+                        'textarea[name="question"]'
+                    );
+
+                    if (
+                        questionInput &&
+                        questionInput.value.trim() === ""
+                    ) {
+
+                        event.preventDefault();
+
+                        showMessage(
+                            statusBox,
+                            "Please enter your question.",
+                            true
+                        );
+
+                        questionInput.focus();
+
+                        return;
+                    }
+
+                    // Display a loading message while Flask processes the request.
+                    if (statusBox) {
+
+                        showMessage(
+                            statusBox,
+                            form.dataset.loadingMessage ||
+                                "Processing your request...",
+                            false
+                        );
+                    }
+
+                    // Prevent accidental repeated submissions.
+                    if (submitButton) {
+
+                        submitButton.disabled = true;
+                        submitButton.textContent = "Please wait...";
+                    }
+
+                    // The browser now submits the form to the Flask route.
+                    // The loading message stays visible until the next page loads.
+                });
+
+            });
 
 
-    analyzerForm.addEventListener(
-        "submit",
-        function(event) {
+            function showMessage(element, message, isError) {
 
-            if (!analyzerFile.files.length) {
+                if (!element) {
+                    return;
+                }
 
-                event.preventDefault();
+                element.textContent = message;
 
-                alert("Please select a PDF first.");
+                element.classList.add("visible");
 
-                return;
+                element.classList.toggle("error", isError);
             }
 
-
-            const file =
-                analyzerFile.files[0];
-
-
-            if (
-                !file.name
-                    .toLowerCase()
-                    .endsWith(".pdf")
-            ) {
-
-                event.preventDefault();
-
-                alert("Please select a PDF file.");
-
-                return;
-            }
-
-
-            analyzerButton.disabled = true;
-
-            analyzerButton.textContent =
-                "⏳ Analyzing...";
-
-            analyzerStatus.style.display =
-                "block";
-
-        }
-    );
-
-
-
-    // ---------------------------------------
-    // ASK YOUR NOTES
-    // ---------------------------------------
-
-    const askForm =
-        document.getElementById("askForm");
-
-    const askFile =
-        document.getElementById("askFile");
-
-    const question =
-        document.getElementById("question");
-
-    const askButton =
-        document.getElementById("askButton");
-
-    const askStatus =
-        document.getElementById("askStatus");
-
-
-    askForm.addEventListener(
-        "submit",
-        function(event) {
-
-            if (!askFile.files.length) {
-
-                event.preventDefault();
-
-                alert("Please select a PDF first.");
-
-                return;
-            }
-
-
-            const file =
-                askFile.files[0];
-
-
-            if (
-                !file.name
-                    .toLowerCase()
-                    .endsWith(".pdf")
-            ) {
-
-                event.preventDefault();
-
-                alert("Please select a PDF file.");
-
-                return;
-            }
-
-
-            if (!question.value.trim()) {
-
-                event.preventDefault();
-
-                alert("Please enter a question.");
-
-                return;
-            }
-
-
-            askButton.disabled = true;
-
-            askButton.textContent =
-                "⏳ Thinking...";
-
-            askStatus.style.display =
-                "block";
-
-        }
-    );
-
-</script>
-
+        });
+    </script>
 
 </body>
-
 </html>
