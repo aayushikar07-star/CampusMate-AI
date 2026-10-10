@@ -27,10 +27,15 @@ load_dotenv()
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "uploads"
-)
+# Vercel's deployed filesystem is read-only except for /tmp.
+# Keep local uploads in the project folder, but use /tmp on Vercel.
+if os.getenv("VERCEL"):
+    UPLOAD_FOLDER = os.path.join("/tmp", "campusmate_uploads")
+else:
+    UPLOAD_FOLDER = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "uploads"
+    )
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
