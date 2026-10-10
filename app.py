@@ -1,9 +1,9 @@
 from flask import (
     Flask,
     render_template,
-    request,
     render_template_string,
-    session,
+    request,
+    jsonify,
 )
 from werkzeug.utils import secure_filename
 from pypdf import PdfReader
@@ -11,12 +11,12 @@ from dotenv import load_dotenv
 from google import genai
 
 import os
+import re
+import json
 import time
+import secrets
 import random
 import html
-import json
-import re
-import secrets
 
 
 # ==========================================================
@@ -27,9 +27,11 @@ load_dotenv()
 
 app = Flask(__name__)
 
-app.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
+UPLOAD_FOLDER = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "uploads"
+)
 
-UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -44,6 +46,13 @@ GEMINI_MODELS = [
     "gemini-3.5-flash",
     "gemini-2.5-flash",
 ]
+
+# Temporary server-side quiz storage.
+# Quiz data is not stored in browser cookies.
+QUIZ_STORE = {}
+
+# A quiz expires after two hours.
+QUIZ_EXPIRY_SECONDS = 2 * 60 * 60
 
 
 # ==========================================================
@@ -75,7 +84,6 @@ def home():
 # ==========================================================
 
 def extract_pdf_text(file_path):
-
     reader = PdfReader(file_path)
 
     extracted_pages = []
@@ -85,9 +93,13 @@ def extract_pdf_text(file_path):
     print("\n========== PDF EXTRACTION ==========")
     print("Total pages:", total_pages)
 
-    for page_number, page in enumerate(reader.pages, start=1):
-
-        print(f"Reading page {page_number}/{total_pages}...")
+    for page_number, page in enumerate(
+        reader.pages,
+        start=1
+    ):
+        print(
+            f"Reading page {page_number}/{total_pages}..."
+        )
 
         page_text = page.extract_text()
 
@@ -107,24 +119,20 @@ def extract_pdf_text(file_path):
 # ==========================================================
 
 def ask_gemini(prompt):
-
     print("\n======================================")
     print("STARTING GEMINI AI")
     print("======================================")
 
     for model_name in GEMINI_MODELS:
-
         print(f"\nTrying model: {model_name}")
 
         for attempt in range(1, 3):
-
             try:
-
                 print(f"Attempt {attempt}/2")
 
                 response = client.interactions.create(
                     model=model_name,
-                    input=prompt,
+                    input=prompt
                 )
 
                 result = response.output_text
@@ -134,19 +142,21 @@ def ask_gemini(prompt):
                         "Gemini returned an empty response."
                     )
 
-                print(f"SUCCESS! Model used: {model_name}")
+                print("SUCCESS! Model used:", model_name)
 
                 return result.strip()
 
             except Exception as error:
-
-                print(f"Model {model_name} failed: {error}")
+                print(
+                    f"Model {model_name} failed: {error}"
+                )
 
                 if attempt == 1:
-
                     delay = 2 + random.uniform(0, 1)
 
-                    print(f"Retrying in {delay:.1f} seconds...")
+                    print(
+                        f"Retrying in {delay:.1f} seconds..."
+                    )
 
                     time.sleep(delay)
 
@@ -156,11 +166,10 @@ def ask_gemini(prompt):
 
 
 # ==========================================================
-# HELPER: VALIDATE AND SAVE PDF
+# HELPER: SAVE AND VALIDATE PDF
 # ==========================================================
 
 def save_uploaded_pdf(file, prefix=""):
-
     if file is None or not file.filename:
         raise ValueError("Please select a PDF file.")
 
@@ -176,12 +185,14 @@ def save_uploaded_pdf(file, prefix=""):
         prefix
         + str(int(time.time() * 1000))
         + "_"
+        + secrets.token_hex(4)
+        + "_"
         + filename
     )
 
     file_path = os.path.join(
         app.config["UPLOAD_FOLDER"],
-        unique_name,
+        unique_name
     )
 
     file.save(file_path)
@@ -192,11 +203,10 @@ def save_uploaded_pdf(file, prefix=""):
 
 
 # ==========================================================
-# HELPER: READ AND VALIDATE PDF TEXT
+# HELPER: READ AND VALIDATE PDF
 # ==========================================================
 
 def read_and_limit_pdf(file_path):
-
     text = extract_pdf_text(file_path)
 
     if not text.strip():
@@ -207,7 +217,6 @@ def read_and_limit_pdf(file_path):
         )
 
     if len(text) > MAX_TEXT_LENGTH:
-
         print(
             f"PDF text limited to {MAX_TEXT_LENGTH} characters."
         )
@@ -224,17 +233,14 @@ def read_and_limit_pdf(file_path):
 RESULT_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
     <title>{{ title }} | CampusMate AI</title>
 
     <style>
-
         * {
             box-sizing: border-box;
         }
@@ -257,7 +263,7 @@ RESULT_TEMPLATE = """
             padding: 28px;
             margin-bottom: 20px;
             border-radius: 16px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 5px 20px rgba(0,0,0,.06);
         }
 
         h1 {
@@ -288,30 +294,22 @@ RESULT_TEMPLATE = """
             margin-top: 20px;
         }
 
-        .button:hover {
-            background: #3730a3;
-        }
-
         @media (max-width: 600px) {
             .header, .card {
                 padding: 20px;
             }
         }
-
     </style>
 </head>
 
 <body>
-
     <div class="container">
-
         <div class="header">
             <h1>🤖 CampusMate AI</h1>
             <p>{{ subtitle }}</p>
         </div>
 
         <div class="card">
-
             {% if question %}
             <div class="question">
                 <strong>Your Question:</strong>
@@ -326,19 +324,24 @@ RESULT_TEMPLATE = """
             <a href="/" class="button">
                 ← Back to CampusMate AI
             </a>
-
         </div>
-
     </div>
-
 </body>
 </html>
 """
 
 
-def show_result(title, subtitle, heading, result, question=None):
-
-    safe_result = html.escape(str(result)).replace("\n", "<br>\n")
+def show_result(
+    title,
+    subtitle,
+    heading,
+    result,
+    question=None
+):
+    safe_result = html.escape(result).replace(
+        "\n",
+        "<br>\n"
+    )
 
     return render_template_string(
         RESULT_TEMPLATE,
@@ -346,7 +349,7 @@ def show_result(title, subtitle, heading, result, question=None):
         subtitle=subtitle,
         result_heading=heading,
         result=safe_result,
-        question=question,
+        question=question
     )
 
 
@@ -356,49 +359,45 @@ def show_result(title, subtitle, heading, result, question=None):
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-
     print("\n========== STUDY MATERIAL ANALYZER ==========")
 
     try:
-
         if "file" not in request.files:
             raise ValueError("Please select a PDF file.")
 
-        file = request.files["file"]
-
-        file_path = save_uploaded_pdf(file)
+        file_path = save_uploaded_pdf(
+            request.files["file"]
+        )
 
         text = read_and_limit_pdf(file_path)
 
         prompt = f"""
 You are CampusMate AI, an academic study assistant.
 
-Analyze the study material provided below.
+Analyze the study material below.
 
-Organize your answer using these sections:
+Organize your answer into these sections:
 
 1. SUMMARY
 Explain the main ideas in simple language.
 
 2. IMPORTANT POINTS
-List important concepts, definitions, facts, and formulas.
+List important concepts, definitions, facts and formulas.
 
 3. EXAM-ORIENTED QUESTIONS
 Create five useful questions based on the material.
 
 4. KEY TERMS
-List technical terms and explain them briefly.
+Explain important technical terms briefly.
 
 5. QUICK REVISION
 Provide concise revision notes.
 
-IMPORTANT RULES:
-
-- Base factual claims on the provided study material.
-- Do not invent information or claim the PDF says something
-  that it does not say.
-- If information needed for a section is missing, say so.
-- Keep the answer student-friendly.
+Rules:
+- Base factual claims on the provided material.
+- Do not invent information.
+- Clearly state if requested information is missing.
+- Keep the explanation student-friendly.
 - Use headings and bullet points.
 
 STUDY MATERIAL:
@@ -410,10 +409,8 @@ STUDY MATERIAL:
         ai_result = ask_gemini(prompt)
 
         if not ai_result:
-
             ai_result = (
-                "CampusMate AI could not analyze your PDF "
-                "because the AI service is temporarily unavailable. "
+                "The AI service is temporarily unavailable. "
                 "Please try again later."
             )
 
@@ -421,30 +418,25 @@ STUDY MATERIAL:
             title="Study Material Analyzer",
             subtitle="AI-powered analysis of your study material",
             heading="📚 Your Study Notes",
-            result=ai_result,
+            result=ai_result
         )
 
     except ValueError as error:
-
         return show_result(
             title="Upload Error",
             subtitle="Please check your uploaded file",
             heading="⚠️ Unable to Analyze PDF",
-            result=str(error),
+            result=str(error)
         ), 400
 
     except Exception as error:
-
         print("STUDY MATERIAL ERROR:", error)
 
         return show_result(
             title="Error",
             subtitle="Something went wrong",
             heading="⚠️ An Error Occurred",
-            result=(
-                "CampusMate AI could not process this PDF. "
-                "Please check the file and try again."
-            ),
+            result="CampusMate AI could not process this PDF."
         ), 500
 
 
@@ -454,24 +446,23 @@ STUDY MATERIAL:
 
 @app.route("/ask", methods=["POST"])
 def ask_notes():
-
     print("\n========== ASK YOUR NOTES ==========")
 
     try:
-
         if "file" not in request.files:
             raise ValueError("Please select a PDF file.")
 
-        file = request.files["file"]
-
-        question = request.form.get("question", "").strip()
+        question = request.form.get(
+            "question",
+            ""
+        ).strip()
 
         if not question:
             raise ValueError("Please enter your question.")
 
         file_path = save_uploaded_pdf(
-            file,
-            prefix="ask_notes_",
+            request.files["file"],
+            prefix="ask_notes_"
         )
 
         text = read_and_limit_pdf(file_path)
@@ -479,20 +470,15 @@ def ask_notes():
         prompt = f"""
 You are CampusMate AI, an academic assistant.
 
-Answer the student's question using the study material below.
+Answer the student's question using ONLY the provided notes.
 
-STRICT INSTRUCTIONS:
-
-1. Read the study material carefully.
-2. Identify information relevant to the question.
-3. Base the answer on the provided study material.
-4. Explain supported information clearly and simply.
-5. If only part of the answer is supported, explain that part
-   and identify what is missing.
-6. If the answer cannot be found, respond:
+Rules:
+1. Use information supported by the notes.
+2. Do not invent facts or quotations.
+3. Explain the answer in student-friendly language.
+4. If the answer is not present, say:
    "I couldn't find the answer in the uploaded notes."
-7. Never invent quotations or claim the notes contain
-   information that is not present.
+5. Start with a direct answer, followed by a brief explanation.
 
 STUDY MATERIAL:
 <study_material>
@@ -503,18 +489,14 @@ STUDENT QUESTION:
 <student_question>
 {question}
 </student_question>
-
-Answer using the instructions above.
 """
 
         answer = ask_gemini(prompt)
 
         if not answer:
-
             answer = (
-                "CampusMate AI could not answer your question "
-                "because the AI service is temporarily unavailable. "
-                "Please try again in a few moments."
+                "The AI service is temporarily unavailable. "
+                "Please try again."
             )
 
         return show_result(
@@ -522,29 +504,608 @@ Answer using the instructions above.
             subtitle="Get answers from your study material",
             heading="🤖 CampusMate AI's Answer",
             result=answer,
-            question=question,
+            question=question
         )
 
     except ValueError as error:
-
         return show_result(
             title="Ask Your Notes",
-            subtitle="Please check your question and uploaded PDF",
+            subtitle="Please check your question and PDF",
             heading="⚠️ Unable to Answer",
-            result=str(error),
+            result=str(error)
         ), 400
 
     except Exception as error:
-
         print("ASK YOUR NOTES ERROR:", error)
 
         return show_result(
             title="Ask Your Notes",
             subtitle="Something went wrong",
             heading="⚠️ An Error Occurred",
-            result="CampusMate AI could not process your question. Please try again.",
-            question=request.form.get("question", "").strip(),
+            result="CampusMate AI could not process your question.",
+            question=request.form.get("question", "").strip()
         ), 500
+
+
+# ==========================================================
+# QUIZ STORAGE HELPERS
+# ==========================================================
+
+def cleanup_old_quizzes():
+    """Remove expired quiz data from server memory."""
+
+    current_time = time.time()
+
+    expired_ids = [
+        quiz_id
+        for quiz_id, quiz_data in QUIZ_STORE.items()
+        if current_time - quiz_data["created_at"]
+        > QUIZ_EXPIRY_SECONDS
+    ]
+
+    for quiz_id in expired_ids:
+        QUIZ_STORE.pop(quiz_id, None)
+
+
+def extract_json_from_response(response_text):
+    """Parse JSON, including JSON surrounded by code fences."""
+
+    cleaned = response_text.strip()
+
+    cleaned = re.sub(
+        r"^```(?:json)?\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+
+    cleaned = re.sub(
+        r"\s*```$",
+        "",
+        cleaned
+    )
+
+    try:
+        return json.loads(cleaned)
+
+    except json.JSONDecodeError:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+
+        if start == -1 or end == -1 or end <= start:
+            raise ValueError(
+                "The AI did not return valid quiz JSON."
+            )
+
+        return json.loads(cleaned[start:end + 1])
+
+
+def validate_questions(data, requested_count):
+    """Validate every generated question before displaying it."""
+
+    if not isinstance(data, dict):
+        raise ValueError("Invalid quiz response from the AI.")
+
+    questions = data.get("questions")
+
+    if not isinstance(questions, list):
+        raise ValueError(
+            "The AI response does not contain a questions list."
+        )
+
+    if len(questions) != requested_count:
+        raise ValueError(
+            f"The AI generated {len(questions)} questions "
+            f"instead of {requested_count}. Please try again."
+        )
+
+    validated = []
+
+    for index, item in enumerate(questions):
+        if not isinstance(item, dict):
+            raise ValueError("An invalid question was generated.")
+
+        question_text = item.get("question")
+        options = item.get("options")
+        answer = item.get("answer")
+        explanation = item.get("explanation", "")
+
+        if not isinstance(question_text, str) or not question_text.strip():
+            raise ValueError(
+                f"Question {index + 1} has no question text."
+            )
+
+        if (
+            not isinstance(options, list)
+            or len(options) != 4
+            or not all(
+                isinstance(option, str) and option.strip()
+                for option in options
+            )
+        ):
+            raise ValueError(
+                f"Question {index + 1} must have four options."
+            )
+
+        # Accept only an integer answer index from 0 to 3.
+        # bool is excluded because bool is a subclass of int.
+        if (
+            not isinstance(answer, int)
+            or isinstance(answer, bool)
+            or answer not in range(4)
+        ):
+            raise ValueError(
+                f"Question {index + 1} has an invalid answer key."
+            )
+
+        if not isinstance(explanation, str):
+            explanation = ""
+
+        validated.append({
+            "question": question_text.strip(),
+            "options": [option.strip() for option in options],
+            "answer": answer,
+            "explanation": explanation.strip()
+        })
+
+    return validated
+
+
+# ==========================================================
+# QUIZ HTML TEMPLATE
+# ==========================================================
+
+QUIZ_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>AI Quiz Generator | CampusMate AI</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 24px 16px;
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #222;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: auto;
+        }
+
+        .header, .question-card, .result-card {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,.06);
+        }
+
+        h1 {
+            color: #4f46e5;
+            margin-top: 0;
+        }
+
+        .question-card h3 {
+            margin-top: 0;
+            line-height: 1.5;
+        }
+
+        .option {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 13px;
+            margin: 10px 0;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 9px;
+            cursor: pointer;
+            line-height: 1.5;
+        }
+
+        .option:hover {
+            background: #eef2ff;
+        }
+
+        .option input {
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+
+        .button {
+            border: none;
+            display: inline-block;
+            padding: 13px 22px;
+            background: #4f46e5;
+            color: white;
+            font-size: 16px;
+            border-radius: 9px;
+            cursor: pointer;
+        }
+
+        .button:disabled {
+            opacity: .65;
+            cursor: wait;
+        }
+
+        .secondary {
+            background: #334155;
+            text-decoration: none;
+            margin-left: 8px;
+        }
+
+        .message {
+            padding: 14px;
+            border-radius: 9px;
+            margin: 16px 0;
+            display: none;
+            line-height: 1.5;
+        }
+
+        .error {
+            color: #991b1b;
+            background: #fee2e2;
+        }
+
+        .success {
+            color: #166534;
+            background: #dcfce7;
+        }
+
+        .correct {
+            border-left: 5px solid #16a34a;
+            background: #f0fdf4;
+        }
+
+        .incorrect {
+            border-left: 5px solid #dc2626;
+            background: #fef2f2;
+        }
+
+        .answer-review {
+            margin-top: 14px;
+            padding: 14px;
+            border-radius: 8px;
+            line-height: 1.6;
+        }
+
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4f46e5;
+        }
+
+        @media (max-width: 600px) {
+            .header, .question-card, .result-card {
+                padding: 18px;
+            }
+
+            .secondary {
+                margin: 12px 0 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>📝 CampusMate AI Quiz</h1>
+
+        <p>
+            Answer the questions generated from your study material.
+        </p>
+
+        <p>
+            Questions: <strong>{{ questions|length }}</strong>
+            &nbsp; | &nbsp;
+            Difficulty: <strong>{{ difficulty }}</strong>
+        </p>
+    </div>
+
+    <div id="message" class="message" role="alert"></div>
+
+    <form id="quizForm">
+
+        <input
+            type="hidden"
+            name="quiz_id"
+            value="{{ quiz_id }}"
+        >
+
+        {% for item in questions %}
+
+            {% set question_index = loop.index0 %}
+
+            <section class="question-card"
+                     id="question-{{ question_index }}">
+
+                <h3>
+                    {{ question_index + 1 }}.
+                    {{ item.question }}
+                </h3>
+
+                {% for option in item.options %}
+
+                    <label class="option">
+
+                        <input
+                            type="radio"
+                            name="q{{ question_index }}"
+                            value="{{ loop.index0 }}"
+                        >
+
+                        <span>
+                            {{ ["A", "B", "C", "D"][loop.index0] }}.
+                            {{ option }}
+                        </span>
+
+                    </label>
+
+                {% endfor %}
+
+            </section>
+
+        {% endfor %}
+
+        <button
+            type="submit"
+            id="submitButton"
+            class="button"
+        >
+            Submit Quiz
+        </button>
+
+        <a href="/" class="button secondary">
+            Back to Home
+        </a>
+
+    </form>
+
+    <section
+        id="results"
+        class="result-card"
+        style="display: none;"
+        aria-live="polite"
+    ></section>
+
+</div>
+
+<script>
+(function () {
+    const quizForm = document.getElementById("quizForm");
+    const submitButton = document.getElementById("submitButton");
+    const message = document.getElementById("message");
+    const results = document.getElementById("results");
+
+    function showMessage(text, type) {
+        message.textContent = text;
+        message.className = "message " + type;
+        message.style.display = "block";
+    }
+
+    function addTextElement(parent, tag, text, className) {
+        const element = document.createElement(tag);
+        element.textContent = text;
+
+        if (className) {
+            element.className = className;
+        }
+
+        parent.appendChild(element);
+        return element;
+    }
+
+    quizForm.addEventListener("change", function (event) {
+        if (event.target.matches('input[type="radio"]')) {
+            message.style.display = "none";
+        }
+    });
+
+    quizForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        if (submitButton.disabled) {
+            return;
+        }
+
+        const questionCards = Array.from(
+            quizForm.querySelectorAll(".question-card")
+        );
+
+        const unanswered = [];
+
+        questionCards.forEach(function (card, index) {
+            const selected = card.querySelector(
+                'input[type="radio"]:checked'
+            );
+
+            if (!selected) {
+                unanswered.push(index + 1);
+            }
+        });
+
+        if (unanswered.length > 0) {
+            showMessage(
+                "You have not answered question(s): " +
+                unanswered.join(", ") +
+                ". Please answer them before submitting.",
+                "error"
+            );
+
+            const firstUnanswered = document.getElementById(
+                "question-" + (unanswered[0] - 1)
+            );
+
+            if (firstUnanswered) {
+                firstUnanswered.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+            }
+
+            return;
+        }
+
+        submitButton.disabled = true;
+        submitButton.textContent = "Submitting...";
+
+        showMessage(
+            "Checking your answers...",
+            "success"
+        );
+
+        try {
+            const formData = new FormData(quizForm);
+
+            const response = await fetch("/quiz/submit", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "Unable to submit the quiz."
+                );
+            }
+
+            message.style.display = "none";
+
+            results.replaceChildren();
+            results.style.display = "block";
+
+            addTextElement(
+                results,
+                "h2",
+                "🎉 Quiz Results"
+            );
+
+            addTextElement(
+                results,
+                "p",
+                "You answered " + data.answered +
+                " out of " + data.total + " questions."
+            );
+
+            addTextElement(
+                results,
+                "p",
+                "Unanswered questions: " + data.unanswered
+            );
+
+            addTextElement(
+                results,
+                "p",
+                "Score: " + data.score + " / " + data.total,
+                "score"
+            );
+
+            const percentage = data.total > 0
+                ? Math.round((data.score / data.total) * 100)
+                : 0;
+
+            addTextElement(
+                results,
+                "p",
+                "Percentage: " + percentage + "%"
+            );
+
+            addTextElement(
+                results,
+                "h3",
+                "Answer Review"
+            );
+
+            data.results.forEach(function (item) {
+                const review = document.createElement("div");
+
+                review.className =
+                    "answer-review " +
+                    (item.is_correct ? "correct" : "incorrect");
+
+                addTextElement(
+                    review,
+                    "h4",
+                    "Question " + item.number + ": " + item.question
+                );
+
+                addTextElement(
+                    review,
+                    "p",
+                    "Your answer: " +
+                    (item.selected_answer || "Not answered")
+                );
+
+                addTextElement(
+                    review,
+                    "p",
+                    "Correct answer: " + item.correct_answer
+                );
+
+                if (item.explanation) {
+                    addTextElement(
+                        review,
+                        "p",
+                        "Explanation: " + item.explanation
+                    );
+                }
+
+                addTextElement(
+                    review,
+                    "strong",
+                    item.is_correct ? "✓ Correct" : "✗ Incorrect"
+                );
+
+                results.appendChild(review);
+            });
+
+            questionCards.forEach(function (card) {
+                card.querySelectorAll(
+                    'input[type="radio"]'
+                ).forEach(function (input) {
+                    input.disabled = true;
+                });
+            });
+
+            submitButton.style.display = "none";
+
+            results.scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+            });
+
+        } catch (error) {
+            showMessage(
+                error.message ||
+                "Something went wrong while submitting your quiz.",
+                "error"
+            );
+
+            submitButton.disabled = false;
+            submitButton.textContent = "Submit Quiz";
+        }
+    });
+})();
+</script>
+
+</body>
+</html>
+"""
 
 
 # ==========================================================
@@ -553,94 +1114,52 @@ Answer using the instructions above.
 
 @app.route("/quiz", methods=["POST"])
 def generate_quiz():
-
     print("\n========== AI QUIZ GENERATOR ==========")
 
     try:
-
-        # --------------------------------------
-        # 1. Validate the uploaded PDF
-        # --------------------------------------
-
         if "file" not in request.files:
             raise ValueError("Please select a PDF file.")
 
         file = request.files["file"]
 
+        requested_count_text = request.form.get(
+            "num_questions",
+            "5"
+        )
+
+        difficulty = request.form.get(
+            "difficulty",
+            "Easy"
+        ).strip().title()
+
+        if requested_count_text not in {"5", "10", "15"}:
+            raise ValueError(
+                "Please select 5, 10 or 15 questions."
+            )
+
+        if difficulty not in {"Easy", "Medium", "Hard"}:
+            raise ValueError(
+                "Please select Easy, Medium or Hard difficulty."
+            )
+
+        requested_count = int(requested_count_text)
+
         file_path = save_uploaded_pdf(
             file,
-            prefix="quiz_",
+            prefix="quiz_"
         )
 
         text = read_and_limit_pdf(file_path)
 
-        # --------------------------------------
-        # 2. Validate quiz settings
-        # --------------------------------------
-
-        allowed_counts = {5, 10, 15}
-
-        try:
-            num_questions = int(
-                request.form.get("num_questions", "10")
-            )
-        except (TypeError, ValueError):
-            raise ValueError("Please choose a valid question count.")
-
-        if num_questions not in allowed_counts:
-            raise ValueError(
-                "Choose 5, 10, or 15 questions."
-            )
-
-        difficulty = request.form.get(
-            "difficulty",
-            "Medium",
-        ).strip().capitalize()
-
-        if difficulty not in {"Easy", "Medium", "Hard"}:
-            raise ValueError(
-                "Choose Easy, Medium, or Hard difficulty."
-            )
-
-        # --------------------------------------
-        # 3. Ask Gemini to generate MCQs
-        # --------------------------------------
-
         prompt = f"""
-You are CampusMate AI, an educational quiz generator.
+You are CampusMate AI, an academic quiz generator.
 
-Create exactly {num_questions} multiple-choice questions
-from the supplied study material.
+Create exactly {requested_count} multiple-choice questions
+from the provided study material.
 
-DIFFICULTY: {difficulty}
+Difficulty: {difficulty}
 
-DIFFICULTY GUIDELINES:
-
-Easy:
-Test basic definitions, facts, and direct understanding.
-
-Medium:
-Test understanding, comparisons, and application of concepts.
-
-Hard:
-Test deeper reasoning and relationships between concepts,
-but do not require facts outside the provided material.
-
-STRICT SOURCE RULES:
-
-- Use only information supported by the supplied material.
-- Do not invent facts, formulas, or concepts.
-- If the material does not support enough distinct questions,
-  generate only the number of good questions it supports.
-- Every question must have exactly four answer options.
-- Exactly one option must be correct.
-- The three incorrect options must be plausible but clearly incorrect.
-- Explanations must be supported by the supplied material.
-- Do not include the answer in the question itself.
-
-Return ONLY valid JSON. Do not use Markdown code fences.
-
-Use exactly this structure:
+Return ONLY valid JSON in this exact format:
 
 {{
   "questions": [
@@ -652,18 +1171,27 @@ Use exactly this structure:
         "Option C",
         "Option D"
       ],
-      "correct_answer": 0,
-      "explanation": "Explanation based on the study material"
+      "answer": 0,
+      "explanation": "Brief explanation"
     }}
   ]
 }}
 
-IMPORTANT:
-- correct_answer must be an integer from 0 to 3.
-- 0 means the first option, 1 the second, 2 the third,
-  and 3 the fourth.
-- Do not return any other keys.
-- Generate no more than {num_questions} questions.
+IMPORTANT RULES:
+
+1. Generate exactly {requested_count} questions.
+2. Every question must have exactly four options.
+3. The answer must be an integer from 0 to 3.
+4. The answer integer identifies the correct option:
+   0 = first option, 1 = second, 2 = third, 3 = fourth.
+5. Each question must have one correct answer.
+6. Include a brief explanation of the correct answer.
+7. Base the questions and answers on the provided material.
+8. Do not invent facts absent from the material.
+9. Match the requested difficulty.
+10. Do not include Markdown fences or text outside the JSON.
+11. Use different questions rather than repeating the same fact.
+12. Ensure every question is clear and every answer key is valid.
 
 STUDY MATERIAL:
 <study_material>
@@ -671,171 +1199,54 @@ STUDY MATERIAL:
 </study_material>
 """
 
-        print(
-            f"Generating {num_questions} questions "
-            f"at {difficulty} difficulty..."
-        )
+        response_text = ask_gemini(prompt)
 
-        ai_result = ask_gemini(prompt)
-
-        if not ai_result:
+        if not response_text:
             raise RuntimeError(
                 "The AI service is temporarily unavailable. "
                 "Please try generating the quiz again."
             )
 
-        # --------------------------------------
-        # 4. Parse and validate Gemini's JSON
-        # --------------------------------------
+        data = extract_json_from_response(response_text)
 
-        cleaned_result = ai_result.strip()
-
-        # Remove Markdown fences if Gemini returns them.
-        cleaned_result = re.sub(
-            r"^```(?:json)?\s*",
-            "",
-            cleaned_result,
-            flags=re.IGNORECASE,
+        questions = validate_questions(
+            data,
+            requested_count
         )
 
-        cleaned_result = re.sub(
-            r"\s*```$",
-            "",
-            cleaned_result,
-        )
+        cleanup_old_quizzes()
 
-        try:
-            quiz_data = json.loads(cleaned_result)
-        except json.JSONDecodeError:
+        quiz_id = secrets.token_urlsafe(24)
 
-            # Attempt to recover a JSON object from the response.
-            match = re.search(
-                r"\{.*\}",
-                cleaned_result,
-                flags=re.DOTALL,
-            )
-
-            if not match:
-                raise ValueError(
-                    "The AI returned an invalid quiz format. "
-                    "Please try again."
-                )
-
-            quiz_data = json.loads(match.group(0))
-
-        raw_questions = quiz_data.get("questions", [])
-
-        if not isinstance(raw_questions, list):
-            raise ValueError(
-                "The AI returned an invalid question list. "
-                "Please try again."
-            )
-
-        # Validate questions before showing them to the student.
-        questions = []
-
-        for item in raw_questions:
-
-            if not isinstance(item, dict):
-                continue
-
-            question_text = item.get("question")
-            options = item.get("options")
-            correct_answer = item.get("correct_answer")
-            explanation = item.get("explanation", "")
-
-            if not isinstance(question_text, str):
-                continue
-
-            if not isinstance(options, list) or len(options) != 4:
-                continue
-
-            if not all(isinstance(option, str) for option in options):
-                continue
-
-            if (
-                isinstance(correct_answer, bool)
-                or not isinstance(correct_answer, int)
-                or correct_answer not in range(4)
-            ):
-                continue
-
-            if not all(option.strip() for option in options):
-                continue
-
-            questions.append({
-                "question": question_text.strip(),
-                "options": [option.strip() for option in options],
-                "correct_answer": correct_answer,
-                "explanation": (
-                    explanation.strip()
-                    if isinstance(explanation, str)
-                    else ""
-                ),
-            })
-
-            if len(questions) >= num_questions:
-                break
-
-        if not questions:
-            raise ValueError(
-                "No valid quiz questions could be generated. "
-                "Try another PDF with more readable study content."
-            )
-
-        print("Valid questions generated:", len(questions))
-
-        # --------------------------------------
-        # 5. Create a temporary quiz identifier
-        # --------------------------------------
-
-        quiz_id = secrets.token_urlsafe(16)
-
-        # Store the answer key on the server, not in the HTML.
-        if "active_quizzes" not in session:
-            session["active_quizzes"] = {}
-
-        active_quizzes = session["active_quizzes"]
-
-        active_quizzes[quiz_id] = {
+        # Store correct answers on the server.
+        QUIZ_STORE[quiz_id] = {
             "questions": questions,
             "difficulty": difficulty,
+            "created_at": time.time()
         }
 
-        # Keep the session small and limit retained quiz data.
-        if len(active_quizzes) > 3:
-            oldest_keys = list(active_quizzes.keys())[:-3]
-
-            for old_key in oldest_keys:
-                active_quizzes.pop(old_key, None)
-
-        session["active_quizzes"] = active_quizzes
-        session.modified = True
-
-        # --------------------------------------
-        # 6. Display the interactive quiz
-        # --------------------------------------
+        print(
+            f"Quiz generated successfully: "
+            f"{len(questions)} questions."
+        )
 
         return render_template_string(
             QUIZ_TEMPLATE,
             quiz_id=quiz_id,
             questions=questions,
-            difficulty=difficulty,
-            total=len(questions),
+            difficulty=difficulty
         )
 
     except ValueError as error:
-
         return show_result(
             title="AI Quiz Generator",
             subtitle="Please check your PDF and quiz settings",
-            heading="⚠️ Unable to Generate Quiz",
-            result=str(error),
+            heading="⚠️ Could Not Generate Quiz",
+            result=str(error)
         ), 400
 
     except Exception as error:
-
-        print("QUIZ GENERATOR ERROR:", error)
+        print("QUIZ GENERATION ERROR:", error)
 
         return show_result(
             title="AI Quiz Generator",
@@ -843,470 +1254,120 @@ STUDY MATERIAL:
             heading="⚠️ Quiz Generation Failed",
             result=(
                 "CampusMate AI could not generate your quiz. "
-                "Please try again. If the problem continues, "
-                "check the Flask terminal for the error."
-            ),
+                "Please check the terminal for details and try again."
+            )
         ), 500
 
 
 # ==========================================================
-# INTERACTIVE QUIZ PAGE
-# ==========================================================
-
-QUIZ_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-
-    <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    <title>AI Quiz | CampusMate AI</title>
-
-    <style>
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f7fb;
-            color: #222;
-            margin: 0;
-            padding: 30px 16px;
-        }
-
-        .container {
-            max-width: 850px;
-            margin: auto;
-        }
-
-        .header, .card {
-            background: white;
-            padding: 26px;
-            border-radius: 16px;
-            margin-bottom: 22px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
-        }
-
-        h1 {
-            color: #4f46e5;
-        }
-
-        .question-card {
-            background: #fafaff;
-            padding: 20px;
-            border: 1px solid #e4e7ff;
-            border-radius: 12px;
-            margin-bottom: 22px;
-        }
-
-        .question-number {
-            color: #4f46e5;
-            font-weight: bold;
-        }
-
-        .option {
-            display: block;
-            padding: 13px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background: white;
-            cursor: pointer;
-            line-height: 1.5;
-        }
-
-        .option:hover {
-            border-color: #4f46e5;
-            background: #f5f5ff;
-        }
-
-        .option input {
-            margin-right: 10px;
-        }
-
-        button, .back-button {
-            display: inline-block;
-            padding: 13px 22px;
-            border: none;
-            border-radius: 8px;
-            background: #4f46e5;
-            color: white;
-            font-size: 15px;
-            cursor: pointer;
-            text-decoration: none;
-        }
-
-        button:hover, .back-button:hover {
-            background: #3730a3;
-        }
-
-        .score {
-            padding: 20px;
-            border-radius: 12px;
-            background: #eef2ff;
-            margin-bottom: 20px;
-        }
-
-        .feedback {
-            padding: 13px;
-            margin-top: 12px;
-            background: white;
-            border-radius: 8px;
-            line-height: 1.6;
-        }
-
-        .correct {
-            border-left: 5px solid #16a34a;
-        }
-
-        .incorrect {
-            border-left: 5px solid #dc2626;
-        }
-
-        .muted {
-            color: #666;
-        }
-
-        @media (max-width: 600px) {
-            .header, .card {
-                padding: 18px;
-            }
-
-            button, .back-button {
-                width: 100%;
-                text-align: center;
-            }
-        }
-
-    </style>
-
-</head>
-
-<body>
-
-<div class="container">
-
-    <div class="header">
-
-        <h1>📝 CampusMate AI Quiz</h1>
-
-        <p>
-            Difficulty:
-            <strong>{{ difficulty }}</strong>
-        </p>
-
-        <p class="muted">
-            {{ total }} questions • Choose one answer per question.
-        </p>
-
-    </div>
-
-    <div class="card">
-
-        <form id="quizForm">
-
-            <input
-                type="hidden"
-                id="quizId"
-                value="{{ quiz_id }}"
-            >
-
-            {% for item in questions %}
-
-            <div class="question-card">
-
-                <p class="question-number">
-                    Question {{ loop.index }} of {{ total }}
-                </p>
-
-                <h3>{{ item.question }}</h3>
-
-                {% for option in item.options %}
-
-                <label class="option">
-
-                    <input
-                        type="radio"
-                        name="q{{ loop.index0 }}"
-                        value="{{ loop.index0 }}"
-                    >
-
-                    {{ ["A", "B", "C", "D"][loop.index0] }}.
-                    {{ option }}
-
-                </label>
-
-                {% endfor %}
-
-                <div
-                    class="feedback"
-                    id="feedback{{ loop.index0 }}"
-                    hidden
-                ></div>
-
-            </div>
-
-            {% endfor %}
-
-            <button type="submit" id="submitButton">
-                ✅ Submit Quiz
-            </button>
-
-        </form>
-
-        <div id="scoreCard" class="score" hidden></div>
-
-        <a href="/" class="back-button">
-            ← Back to CampusMate AI
-        </a>
-
-    </div>
-
-</div>
-
-<script>
-
-    const quizForm = document.getElementById("quizForm");
-    const submitButton = document.getElementById("submitButton");
-    const scoreCard = document.getElementById("scoreCard");
-
-    quizForm.addEventListener("submit", async function(event) {
-
-        event.preventDefault();
-
-        const totalQuestions = {{ total }};
-        const answers = {};
-
-        for (let i = 0; i < totalQuestions; i++) {
-
-            const selected = document.querySelector(
-                'input[name="q' + i + '"]:checked'
-            );
-
-            if (!selected) {
-                alert("Please answer Question " + (i + 1) + " before submitting.");
-                return;
-            }
-
-            answers[i] = Number(selected.value);
-        }
-
-        submitButton.disabled = true;
-        submitButton.textContent = "Checking your answers...";
-
-        try {
-
-            const response = await fetch("/quiz/submit", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    quiz_id: document.getElementById("quizId").value,
-                    answers: answers
-                })
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || "Could not check the quiz.");
-            }
-
-            scoreCard.hidden = false;
-
-            scoreCard.replaceChildren();
-
-            const heading = document.createElement("h2");
-            heading.textContent = "🎉 Your Quiz Results";
-
-            const score = document.createElement("h3");
-            score.textContent =
-                "Your Score: " + result.score + " / " + result.total;
-
-            const percentage = document.createElement("p");
-            percentage.textContent =
-                "Percentage: " + result.percentage + "%";
-
-            const message = document.createElement("p");
-            message.textContent = result.message;
-
-            scoreCard.append(heading, score, percentage, message);
-
-            result.results.forEach(function(item, index) {
-
-                const feedback = document.getElementById(
-                    "feedback" + index
-                );
-
-                feedback.hidden = false;
-                feedback.replaceChildren();
-
-                const status = document.createElement("strong");
-
-                status.textContent = item.is_correct
-                    ? "✅ Correct!"
-                    : "❌ Incorrect";
-
-                const correct = document.createElement("p");
-                correct.textContent =
-                    "Correct answer: " + item.correct_option;
-
-                const explanation = document.createElement("p");
-                explanation.textContent =
-                    "Explanation: " + item.explanation;
-
-                feedback.append(status, correct, explanation);
-
-                feedback.classList.add(
-                    item.is_correct ? "correct" : "incorrect"
-                );
-
-            });
-
-            document.querySelectorAll(
-                '#quizForm input[type="radio"]'
-            ).forEach(function(input) {
-                input.disabled = true;
-            });
-
-            submitButton.textContent = "Quiz Submitted";
-
-            scoreCard.scrollIntoView({
-                behavior: "smooth",
-                block: "center"
-            });
-
-        } catch (error) {
-
-            alert(error.message);
-
-            submitButton.disabled = false;
-            submitButton.textContent = "✅ Submit Quiz";
-
-        }
-
-    });
-
-</script>
-
-</body>
-</html>
-"""
-
-
-# ==========================================================
-# SUBMIT QUIZ AND CALCULATE SCORE
+# QUIZ SUBMISSION AND SCORING
 # ==========================================================
 
 @app.route("/quiz/submit", methods=["POST"])
 def submit_quiz():
+    print("\n========== QUIZ SUBMISSION ==========")
 
     try:
+        quiz_id = request.form.get(
+            "quiz_id",
+            ""
+        ).strip()
 
-        data = request.get_json(silent=True) or {}
+        if not quiz_id:
+            return jsonify({
+                "error": "Quiz ID is missing. Please generate a new quiz."
+            }), 400
 
-        quiz_id = data.get("quiz_id")
-        answers = data.get("answers")
+        cleanup_old_quizzes()
 
-        if not isinstance(quiz_id, str):
-            return {
-                "error": "Invalid quiz. Please generate a new quiz."
-            }, 400
+        quiz_data = QUIZ_STORE.get(quiz_id)
 
-        if not isinstance(answers, dict):
-            return {
-                "error": "Please submit your answers."
-            }, 400
-
-        active_quizzes = session.get("active_quizzes", {})
-        quiz = active_quizzes.get(quiz_id)
-
-        if not quiz:
-            return {
+        if not quiz_data:
+            return jsonify({
                 "error": (
-                    "This quiz has expired or is no longer available. "
+                    "This quiz has expired or the server restarted. "
                     "Please generate a new quiz."
                 )
-            }, 400
+            }), 410
 
-        questions = quiz["questions"]
-
-        if len(answers) != len(questions):
-            return {
-                "error": "Please answer every question."
-            }, 400
+        questions = quiz_data["questions"]
 
         score = 0
+        answered = 0
         results = []
 
-        for index, question in enumerate(questions):
+        for index, item in enumerate(questions):
+            # Each question has its own radio name:
+            # q0, q1, q2, and so on.
+            field_name = f"q{index}"
 
-            submitted_answer = answers.get(str(index))
+            selected_value = request.form.get(field_name)
 
+            selected_index = None
+
+            if selected_value is not None:
+                try:
+                    selected_index = int(selected_value)
+                except (TypeError, ValueError):
+                    selected_index = None
+
+            # A valid answer must be one of the four option indexes.
             if (
-                isinstance(submitted_answer, bool)
-                or not isinstance(submitted_answer, int)
-                or submitted_answer not in range(4)
+                selected_index is not None
+                and selected_index in range(4)
             ):
-                return {
-                    "error": "One or more answers are invalid."
-                }, 400
+                answered += 1
 
-            correct_answer = question["correct_answer"]
-            is_correct = submitted_answer == correct_answer
+            is_correct = (
+                selected_index is not None
+                and selected_index == item["answer"]
+            )
 
             if is_correct:
                 score += 1
 
+            selected_answer = None
+
+            if (
+                selected_index is not None
+                and selected_index in range(4)
+            ):
+                selected_answer = item["options"][selected_index]
+
+            correct_answer = item["options"][item["answer"]]
+
             results.append({
+                "number": index + 1,
+                "question": item["question"],
+                "selected_answer": selected_answer,
+                "correct_answer": correct_answer,
                 "is_correct": is_correct,
-                "correct_option": (
-                    "ABCD"[correct_answer]
-                    + ". "
-                    + question["options"][correct_answer]
-                ),
-                "explanation": question["explanation"],
+                "explanation": item["explanation"]
             })
 
         total = len(questions)
-        percentage = round((score / total) * 100)
+        unanswered = total - answered
 
-        if percentage == 100:
-            message = "Excellent! You answered every question correctly!"
-        elif percentage >= 70:
-            message = "Great job! You have a good understanding of the material."
-        elif percentage >= 40:
-            message = "Good effort! Review the explanations to improve."
-        else:
-            message = "Keep practising! Review your notes and try again."
+        print(
+            f"Answered: {answered}/{total}; "
+            f"Score: {score}/{total}"
+        )
 
-        # Invalidate this quiz so it cannot be submitted repeatedly.
-        active_quizzes.pop(quiz_id, None)
-        session["active_quizzes"] = active_quizzes
-        session.modified = True
-
-        return {
-            "score": score,
+        return jsonify({
+            "success": True,
             "total": total,
-            "percentage": percentage,
-            "message": message,
-            "results": results,
-        }
+            "answered": answered,
+            "unanswered": unanswered,
+            "score": score,
+            "results": results
+        })
 
     except Exception as error:
-
         print("QUIZ SUBMISSION ERROR:", error)
 
-        return {
-            "error": "Could not calculate your score. Please try again."
-        }, 500
+        return jsonify({
+            "error": "The quiz could not be scored. Please try again."
+        }), 500
 
 
 # ==========================================================
@@ -1315,15 +1376,14 @@ def submit_quiz():
 
 @app.errorhandler(413)
 def file_too_large(error):
-
     return show_result(
         title="File Too Large",
         subtitle="Please upload a smaller PDF",
         heading="⚠️ Upload Limit Exceeded",
         result=(
             "Your PDF exceeds the 15 MB upload limit. "
-            "Please choose a smaller file."
-        ),
+            "Please choose a smaller PDF."
+        )
     ), 413
 
 
@@ -1332,7 +1392,6 @@ def file_too_large(error):
 # ==========================================================
 
 if __name__ == "__main__":
-
     print("\n======================================")
     print("CampusMate AI is starting...")
     print("Open: http://127.0.0.1:5000")
